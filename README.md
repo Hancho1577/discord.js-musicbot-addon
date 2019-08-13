@@ -5,7 +5,7 @@
   </p>
 </div>  
 
-# Discord MusicBot Addon
+# Discord MusicBot Addon _ 한글패치 & 일부기능 추가 & 일부 버그 수정
 ***  
 This module is a simple Node.js based music extension/bot for Discord.js projects using YouTube. This was originally an update of an older addon for newer versions of Discord.js but not serves as it's own module.   
 
