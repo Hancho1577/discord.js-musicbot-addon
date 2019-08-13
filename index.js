@@ -858,20 +858,23 @@ try {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 1) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
                       m.content.includes('2') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 2) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
                       m.content.includes('2') ||
                       m.content.includes('3') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 3) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
@@ -879,7 +882,8 @@ try {
                       m.content.includes('3') ||
                       m.content.includes('4') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 4) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
@@ -888,7 +892,8 @@ try {
                       m.content.includes('4') ||
                       m.content.includes('5') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 5) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
@@ -898,7 +903,8 @@ try {
                       m.content.includes('5') ||
                       m.content.includes('6') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 6) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
@@ -909,7 +915,8 @@ try {
                       m.content.includes('6') ||
                       m.content.includes('7') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 7) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
@@ -921,7 +928,8 @@ try {
                       m.content.includes('7') ||
                       m.content.includes('8') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 8) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
@@ -934,7 +942,8 @@ try {
                       m.content.includes('8') ||
                       m.content.includes('9') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     } else if (max === 9) {
                       filter = m => m.author.id === msg.author.id &&
                       m.content.includes('1') ||
@@ -948,7 +957,8 @@ try {
                       m.content.includes('9') ||
                       m.content.includes('10') ||
                       m.content.trim() === (`cancel`) ||
-                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0;
+                      m.content.trim().indexOf(musicbot.botPrefix+"p") ==0 ||
+                      m.content.trim() === (`c`);
                     }
                     msg.channel.awaitMessages(filter, {
                       max: 1,
@@ -958,7 +968,7 @@ try {
                     .then(collected => {
                       const newColl = Array.from(collected);
                       const mcon = newColl[0][1].content;
-                      
+
                       if (mcon == "cancel") {
                         firstMsg.delete();
                         return msg.reply(musicbot.note('note', '검색이 취소되었습니다.'));
