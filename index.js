@@ -102,7 +102,7 @@ try {
           enabled: (options.queue == undefined ? true : (options.queue && typeof options.queue.enabled !== 'undefined' ? options.queue && options.queue.enabled : true)),
           run: "queueFunction",
           alt: (options && options.queue && options.queue.alt) || [],
-          help: (options && options.queue && options.queue.help) || "현재 큐(플레이리스트)를 보여줍니다.",
+          help: (options && options.queue && options.queue.help) || "현재 플레이리스트를 보여줍니다.",
           name: (options && options.queue && options.queue.name) || "queue",
           usage: (options && options.queue && options.queue.usage) || null,
           exclude: Boolean((options && options.queue && options.queue.exclude)),
@@ -150,7 +150,7 @@ try {
           enabled: (options.clearqueue == undefined ? true : (options.clearqueue && typeof options.clearqueue.enabled !== 'undefined' ? options.clearqueue && options.clearqueue.enabled : true)),
           run: "clearFunction",
           alt: (options && options.clear && options.clear.alt) || [],
-          help: (options && options.clear && options.clear.help) || "큐를 초기화합니다.",
+          help: (options && options.clear && options.clear.help) || "플레이리스트를 초기화합니다.",
           name: (options && options.clear && options.clear.name) || "clear",
           usage: (options && options.clear && options.clear.usage) || null,
           exclude: Boolean((options && options.clearqueue && options.clearqueue.exclude)),
@@ -173,7 +173,7 @@ try {
           enabled: (options.remove == undefined ? true : (options.remove && typeof options.remove.enabled !== 'undefined' ? options.remove && options.remove.enabled : true)),
           run: "removeFunction",
           alt: (options && options.remove && options.remove.alt) || [],
-          help: (options && options.remove && options.remove.help) || "큐에서 노래를 제거합니다.",
+          help: (options && options.remove && options.remove.help) || "플레이리스트에서 노래를 제거합니다.",
           name: (options && options.remove && options.remove.name) || "remove",
           usage: (options && options.remove && options.remove.usage) || "{{prefix}}remove [position]",
           exclude: Boolean((options && options.remove && options.remove.exclude)),
@@ -199,6 +199,7 @@ try {
         this.anyoneCanPause = (options && typeof options.anyoneCanPause !== 'undefined' ? options && options.anyoneCanPause : false);
         this.anyoneCanAdjust = (options && typeof options.anyoneCanAdjust !== 'undefined' ? options && options.anyoneCanAdjust : false);
         this.youtubeKey = (options && options.youtubeKey);
+        this.region = (options && options.region);
         this.botPrefix = (options && options.botPrefix) || "!";
         this.defVolume = (options && options.defVolume) || 50;
         this.maxQueueSize = (options && options.maxQueueSize) || 50;
@@ -349,8 +350,9 @@ try {
     var musicbot = new Music(client, options);
     if (musicbot.insertMusic == true) client.music = musicbot;
     else exports.bot = musicbot;
-
-    musicbot.searcher = new YTSearcher(musicbot.youtubeKey);
+    var options = {};
+    options.regionCode = musicbot.region ? musicbot.region : "KR";
+    musicbot.searcher = new YTSearcher(musicbot.youtubeKey,options);
     musicbot.changeKey = (key) => {
       return new Promise((resolve, reject) => {
         if (!key || typeof key !== "string") reject("key must be a string");
@@ -362,6 +364,7 @@ try {
 
     client.on("ready", () => {
       console.log(`------- Music Bot -------\n> Version: ${PACKAGE.version}\n> Extra Logging: ${musicbot.logging}.\n> Node.js Version: ${process.version}\n------- Music Bot -------`);
+      console.log("Selected region = " + (musicbot.region ? musicbot.region : "KR"));
       if (musicbot.cooldown.exclude.includes("skip")) console.warn(`[MUSIC] Excluding SKIP CMD from cooldowns can cause issues.`);
       if (musicbot.cooldown.exclude.includes("play")) console.warn(`[MUSIC] Excluding PLAY CMD from cooldowns can cause issues.`);
       if (musicbot.cooldown.exclude.includes("remove")) console.warn(`[MUSIC] Excluding REMOVE CMD from cooldowns can cause issues.`);
@@ -436,7 +439,9 @@ try {
       if (msg.member.voiceChannel === undefined) return msg.channel.send(musicbot.note('fail', `먼저 보이스채널에 들어가주세요!`));
       if (!suffix) return msg.channel.send(musicbot.note('fail', '영상 제목 또는 링크를 입력해주세요! 예시: '));
       let q = musicbot.getQueue(msg.guild.id)
-      if (q.songs.length >= musicbot.maxQueueSize && musicbot.maxQueueSize !== 0) return msg.channel.send(musicbot.note('fail', '큐가 가득 찼습니다!'));
+      if (q.songs.length >= musicbot.maxQueueSize && musicbot.maxQueueSize !== 0) return msg.channel.send(musicbot.note('fail', '플레이리스트가 가득 찼습니다!'));
+      let vc = client.voiceConnections.find(val => val.channel.guild.id == msg.member.guild.id)
+      if (vc && vc.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에서 신청해주세요.`));
       var searchstring = suffix.trim();
       if (searchstring.includes("https://youtu.be/") || searchstring.includes("https://www.youtube.com/") && searchstring.includes("&")) searchstring = searchstring.split("&")[0];
 
@@ -479,7 +484,7 @@ try {
           });
         });
       } else {
-        msg.channel.send(musicbot.note("search", `\`Searching: ${searchstring}\`~`));
+        msg.channel.send(musicbot.note("search", `\`검색 중: ${searchstring}\`~`));
         new Promise(async (resolve, reject) => {
           let result = await musicbot.searcher.search(searchstring, { type: 'video' });
           resolve(result.first)
@@ -496,7 +501,7 @@ try {
           if (msg.channel.permissionsFor(msg.guild.me).has('EMBED_LINKS')) {
             const embed = new Discord.RichEmbed();
             try {
-              embed.setAuthor('큐에 추가되었습니다', client.user.avatarURL);
+              embed.setAuthor('플레이리스트에 추가되었습니다', client.user.avatarURL);
               var songTitle = res.title.replace(/\\/g, '\\\\')
               .replace(/\`/g, '\\`')
               .replace(/\*/g, '\\*')
@@ -636,8 +641,10 @@ try {
     };
 
     musicbot.skipFunction = (msg, suffix, args) => {
+      if (!msg.member.voiceChannel) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와 있지 않습니다.`));
       const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
       if (voiceConnection === null) return msg.channel.send(musicbot.note('fail', '재생중인 노래가 없습니다.'));
+      if (voiceConnection && voiceConnection.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에서만 사용할 수 있는 명령어입니다.`));
       const queue = musicbot.getQueue(msg.guild.id);
       if (!musicbot.canSkip(msg.member, queue)) return msg.channel.send(musicbot.note('fail', `당신은 스킵할 수 없습니다.`));
 
@@ -654,9 +661,11 @@ try {
     };
 
     musicbot.pauseFunction = (msg, suffix, args) => {
+      if (!msg.member.voiceChannel) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와 있지 않습니다.`));
       const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
       if (voiceConnection === null) return msg.channel.send(musicbot.note('fail', '재생중인 노래가 없습니다.'));
-      if (!musicbot.isAdmin(msg.member) && !musicbot.anyoneCanPause) return msg.channel.send(musicbot.note('fail', '당신은 큐를 정지시킬 수 없습니다.'));
+      if (voiceConnection && voiceConnection.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에서만 사용할 수 있습니다.`));
+      if (!musicbot.isAdmin(msg.member) && !musicbot.anyoneCanPause) return msg.channel.send(musicbot.note('fail', '당신은 플레이리스트를 정지시킬 수 없습니다.'));
 
       const dispatcher = voiceConnection.player.dispatcher;
 	  try{
@@ -670,9 +679,12 @@ try {
     };
 
     musicbot.resumeFunction = (msg, suffix, args) => {
+      if (!msg.member.voiceChannel) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와 있지 않습니다.`));
       const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
       if (voiceConnection === null) return msg.channel.send(musicbot.note('fail', '재생중인 노래가 없습니다.'));
-      if (!musicbot.isAdmin(msg.member) && !musicbot.anyoneCanPause) return msg.channel.send(musicbot.note('fail', `당신은 큐를 다시 재생할 수 없습니다.`));
+      if (voiceConnection && voiceConnection.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에 있지 않습니다.`));
+      if (!musicbot.isAdmin(msg.member) && !musicbot.anyoneCanPause) return msg.channel.send(musicbot.note('fail', `당신은 플레이리스트를 다시 재생할 수 없습니다.`));
+
 
       const dispatcher = voiceConnection.player.dispatcher;
       if (!dispatcher.paused) return msg.channel.send(musicbot.note('fail', `이미 재생중입니다.`))
@@ -683,7 +695,7 @@ try {
     musicbot.leaveFunction = (msg, suffix) => {
       if (musicbot.isAdmin(msg.member) || musicbot.anyoneCanLeave === true) {
         const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
-        if (voiceConnection === null) return msg.channel.send(musicbot.note('fail', '보이스채널에 들어와있지 않습니다.'));
+        if (voiceConnection === null) return msg.channel.send(musicbot.note('fail', '보이스채널에 들어와 있지 않습니다.'));
 		console.log("대기");
 		//if(musicbot.getQueue(msg.guild.id, true) !=){
         musicbot.emptyQueue(msg.guild.id);
@@ -707,7 +719,7 @@ try {
       if (voiceConnection === null) return msg.channel.send(musicbot.note('fail', '재생중인 노래가 없습니다.'));
       const dispatcher = voiceConnection.player.dispatcher;
 
-      if (musicbot.queues.get(msg.guild.id).songs.length <= 0) return msg.channel.send(musicbot.note('note', '큐가 비어있습니다.'));
+      if (musicbot.queues.get(msg.guild.id).songs.length <= 0) return msg.channel.send(musicbot.note('note', '플레이리스트가 비어있습니다.'));
 
       if (msg.channel.permissionsFor(msg.guild.me)
         .has('EMBED_LINKS')) {
@@ -750,8 +762,8 @@ try {
     };
 
     musicbot.queueFunction = (msg, suffix, args) => {
-      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note("fail", "이 서버엔 아직 큐가 없습니다!"));
-      else if (musicbot.queues.get(msg.guild.id).songs.length <= 0) return msg.channel.send(musicbot.note("fail", "큐가 비어있어요."));
+      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note("fail", "이 서버엔 아직 플레이리스트가 없습니다."));
+      else if (musicbot.queues.get(msg.guild.id).songs.length <= 0) return msg.channel.send(musicbot.note("fail", "플레이리스트가 비어있습니다."));
       const queue = musicbot.queues.get(msg.guild.id);
       if (suffix) {
         let video = queue.songs.find(s => s.position == parseInt(suffix) - 1);
@@ -820,14 +832,16 @@ try {
     };
 
     musicbot.searchFunction = (msg, suffix, args) => {
-      if (msg.member.voiceChannel === undefined) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와있지 않습니다.'`));
+      if (msg.member.voiceChannel === undefined) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와 있지 않습니다.`));
+      let vc = client.voiceConnections.find(val => val.channel.guild.id == msg.member.guild.id)
+      if (vc && vc.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에 들어와있지 않습니다.`));
       if (!suffix) return msg.channel.send(musicbot.note('fail', '영상제목을 입력해주세요!'));
       const queue = musicbot.getQueue(msg.guild.id);
-      if (queue.songs.length >= musicbot.maxQueueSize && musicbot.maxQueueSize !== 0) return msg.channel.send(musicbot.note('fail', '큐가 모두 찼습니다!'));
+      if (queue.songs.length >= musicbot.maxQueueSize && musicbot.maxQueueSize !== 0) return msg.channel.send(musicbot.note('fail', '플레이리스트가 가득 찼습니다!'));
 	  var searchstringg = suffix.trim();
  if ((searchstringg.startsWith('http') && searchstringg.includes("list=")) || searchstringg.includes("https://youtu.be/") || searchstringg.includes("https://www.youtube.com/") && searchstringg.includes("&")) return musicbot.playFunction(msg, suffix, args);
       let searchstring = suffix.trim();
-      msg.channel.send(musicbot.note('search', `Searching: \`${searchstring}\``))
+      msg.channel.send(musicbot.note('search', `검색 중: \`${searchstring}\``))
         .then(response => {
           musicbot.searcher.search(searchstring, {
               type: 'video'
@@ -988,7 +1002,7 @@ try {
                         videos[song_number].requester == msg.author.id;
                         videos[song_number].position = queue.songs.length ? queue.songs.length : 0;
                         var embed = new Discord.RichEmbed();
-                        embed.setAuthor('큐에 추가되었습니다.', client.user.avatarURL);
+                        embed.setAuthor('플레이리스트에 추가되었습니다.', client.user.avatarURL);
                         var songTitle = videos[song_number].title.replace(/\\/g, '\\\\')
                         .replace(/\`/g, '\\`')
                         .replace(/\*/g, '\\*')
@@ -1014,7 +1028,7 @@ try {
                     })
                     .catch(collected => {
                       if (collected.toString()
-                      .match(/error|Error|TypeError|RangeError|Uncaught/)) return firstMsg.edit(`\`\`\`xl\nSearching canceled. ${collected}\n\`\`\``);
+                      .match(/error|Error|TypeError|RangeError|Uncaught/)) return firstMsg.edit(`\`\`\`xl\n검색이 취소되었습니다. ${collected}\n\`\`\``);
                       //return firstMsg.edit(`\`\`\`xl\n검색이 취소되었습니다.\n\`\`\``);
 					  firstMsg.delete();
 					  msg.reply("검색 시간이 초과되었습니다.");
@@ -1121,7 +1135,7 @@ try {
                       const newColl = Array.from(collected);
                       const mcon = newColl[0][1].content;
 
-                      if (mcon === "cancel") return firstMsg.edit(musicbot.note('note', 'Searching canceled.'));
+                      if (mcon === "cancel") return firstMsg.edit(musicbot.note('note', '검색이 취소되었습니다.'));
                       const song_number = parseInt(mcon) - 1;
                       if (song_number >= 0) {
                         firstMsg.delete();
@@ -1129,7 +1143,7 @@ try {
                         videos[song_number].requester == msg.author.id;
                         videos[song_number].position = queue.songs.length ? queue.songs.length : 0;
                         var embed = new Discord.RichEmbed();
-                        embed.setAuthor('큐에 추가되었습니다', client.user.avatarURL);
+                        embed.setAuthor('플레이리스트에 추가되었습니다', client.user.avatarURL);
                         var songTitle = videos[song_number].title.replace(/\\/g, '\\\\')
                         .replace(/\`/g, '\\`')
                         .replace(/\*/g, '\\*')
@@ -1155,8 +1169,8 @@ try {
                     })
                     .catch(collected => {
                       if (collected.toString()
-                      .match(/error|Error|TypeError|RangeError|Uncaught/)) return firstMsg.edit(`\`\`\`xl\nSearching canceled. ${collected}\n\`\`\``);
-                      return firstMsg.edit(`\`\`\`xl\nSearching canceled.\n\`\`\``);
+                      .match(/error|Error|TypeError|RangeError|Uncaught/)) return firstMsg.edit(`\`\`\`xl\n검색이 취소되었습니다. ${collected}\n\`\`\``);
+                      return firstMsg.edit(`\`\`\`xl\n검색이 취소되었습니다.\n\`\`\``);
                     });
                   })
                 }
@@ -1182,8 +1196,10 @@ try {
     };
 
     musicbot.volumeFunction = (msg, suffix, args) => {
+      if (!msg.member.voiceChannel) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와 있지 않습니다.`));
       const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
       if (voiceConnection === null) return msg.channel.send(musicbot.note('fail', '재생중인 노래가 없습니다.'));
+      if (voiceConnection && voiceConnection.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에 들어와 있지 않습니다.`));
       if (!musicbot.canAdjust(msg.member, musicbot.queues.get(msg.guild.id))) return msg.channel.send(musicbot.note('fail', `관리자 또는 DJ만 볼륨을 변경할 수 있습니다.`));
       const dispatcher = voiceConnection.player.dispatcher;
 
@@ -1197,10 +1213,12 @@ try {
     };
 
     musicbot.clearFunction = (msg, suffix, args) => {
-      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note("fail", "현재 서버에서 큐를 찾을 수 없습니다."));
-      if (!musicbot.isAdmin(msg.member)) return msg.channel.send(musicbot.note("fail", `오직 관리자나  ${musicbot.djRole} 만 큐를 초기화 할 수 있습니다.`));
+      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note("fail", "현재 서버에서 플레이리스트를 찾을 수 없습니다."));
+      if (!musicbot.isAdmin(msg.member)) return msg.channel.send(musicbot.note("fail", `오직 관리자나  ${musicbot.djRole} 만 플레이리스트를 초기화 할 수 있습니다.`));
+      let vc = client.voiceConnections.find(val => val.channel.guild.id == msg.member.guild.id)
+      if (vc && vc.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에 들어와 있지 않습니다.`));
       musicbot.emptyQueue(msg.guild.id).then(res => {
-        msg.channel.send(musicbot.note("note", "큐가 초기화 되었습니다."));
+        msg.channel.send(musicbot.note("note", "플레이리스트가 초기화 되었습니다."));
         const voiceConnection = client.voiceConnections.find(val => val.channel.guild.id == msg.guild.id);
         if (voiceConnection !== null) {
           const dispatcher = voiceConnection.player.dispatcher;
@@ -1213,17 +1231,20 @@ try {
         }
       }).catch(res => {
         console.error(new Error(`[clearCmd] [${msg.guild.id}] ${res}`))
-        return msg.channel.send(musicbot.note("fail", "큐를 초기화하는도중 오류가 발생하였습니다."));
+        return msg.channel.send(musicbot.note("fail", "플레이리스트를 초기화하는도중 오류가 발생하였습니다."));
       })
     };
 
     musicbot.removeFunction = (msg, suffix, args) => {
-      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note('fail', `현재 서버에서 큐를 찾을 수 없습니다!`));
+      if (!msg.member.voiceChannel) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와 있지 않습니다.`));
+      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note('fail', `현재 서버에서 플레이리스트를 찾을 수 없습니다!`));
       if (!suffix)  return msg.channel.send(musicbot.note("fail", "No video position given."));
-      if (parseInt(suffix - 1) == 0) return msg.channel.send(musicbot.note("fail", "You cannot clear the currently playing music."));
+      let vc = client.voiceConnections.find(val => val.channel.guild.id == msg.member.guild.id)
+      if (vc && vc.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에 있지 않습니다.`));
+      if (parseInt(suffix - 1) == 0) return msg.channel.send(musicbot.note("fail", "현재 플레이리스트를 초기화 할 수 있는 권한이 없습니다."));
       let test = musicbot.queues.get(msg.guild.id).songs.find(x => x.position == parseInt(suffix - 1));
       if (test) {
-        if (test.requester !== msg.author.id && !musicbot.isAdmin(msg.member)) return msg.channel.send(musicbot.note("fail", "해당 영상을 삭제할 수 없습니다."));
+        if (test.requester !== msg.author.id && !musicbot.isAdmin(msg.member)) return msg.channel.send(musicbot.note("fail", "해당 영상을 제거할 수 없습니다."));
         let newq = musicbot.queues.get(msg.guild.id).songs.filter(s => s !== test);
         musicbot.updatePositions(newq, msg.guild.id).then(res => {
           musicbot.queues.get(msg.guild.id).songs = res;
@@ -1235,7 +1256,10 @@ try {
     };
 
     musicbot.loopFunction = (msg, suffix, args) => {
-      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note('fail', `현재 서버에서 큐를 찾을 수 없습니다!`));
+      if (!msg.member.voiceChannel) return msg.channel.send(musicbot.note('fail', `보이스채널에 들어와 있지 않습니다.`));
+      if (!musicbot.queues.has(msg.guild.id)) return msg.channel.send(musicbot.note('fail', `현재 서버에 재생중인 플레이리스트가 없습니다.`));
+      let vc = client.voiceConnections.find(val => val.channel.guild.id == msg.member.guild.id)
+      if (vc && vc.channel.id != msg.member.voiceChannel.id) return msg.channel.send(musicbot.note('fail', `같은 보이스채널에서만 반복설정 할 수 있습니다.`));
       if (musicbot.queues.get(msg.guild.id).loop == "none" || musicbot.queues.get(msg.guild.id).loop == null) {
         musicbot.queues.get(msg.guild.id).loop = "song";
         msg.channel.send(musicbot.note('note', '단독 반복재생이 활성화 되었습니다. :repeat_one:'));
